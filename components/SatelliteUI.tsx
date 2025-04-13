@@ -128,15 +128,11 @@ export default function SatelliteUI() {
                   <span className="text-white/75">Satellite Trajectory</span>
                 </div>
                 <div className="flex items-center">
-                  <div className="mr-2 h-0.5 w-3 bg-[#9F2B68]"></div>
+                  <div className="mr-2 h-0.5 w-3 bg-[#ff9900]"></div>
                   <span className="text-white/75">Overpass Path</span>
                 </div>
                 <div className="flex items-center">
                   <div className="mr-2 h-0.5 w-3 bg-[#00ff00]"></div>
-                  <span className="text-white/75">Visibility Footprint</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="mr-2 h-0.5 w-3 bg-[#ff00ff]"></div>
                   <span className="text-white/75">Sensor Footprint</span>
                 </div>
                 <div className="flex items-center">
@@ -146,6 +142,10 @@ export default function SatelliteUI() {
                 <div className="flex items-center">
                   <div className="mr-2 h-3 w-3 rounded-full bg-[#ffff00]"></div>
                   <span className="text-white/75">End Point</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="mr-2 h-3 w-3 rounded-full bg-[#ff9900]"></div>
+                  <span className="text-white/75">Overpass Point</span>
                 </div>
               </div>
             </div>

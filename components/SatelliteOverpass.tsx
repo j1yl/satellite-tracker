@@ -56,6 +56,7 @@ interface Overpass {
   geometry: OverpassGeometry;
   visibility_footprint?: OverpassVisibilityFootprint;
   footprints?: OverpassFootprints;
+  date?: string;
 }
 
 interface OverpassData {
@@ -67,97 +68,108 @@ export default function SatelliteOverpass() {
   const { selectedSatellite, overpassData, isOverpassLoading, overpassError } =
     useSatellites();
 
-  const { overpassPoints, visibilityFootprints, sensorFootprints } =
-    useMemo(() => {
-      if (!selectedSatellite || !overpassData[selectedSatellite.id]) {
-        console.log(
-          "No overpass data available for satellite:",
-          selectedSatellite?.id,
-        );
-        return {
-          overpassPoints: [],
-          visibilityFootprints: [],
-          sensorFootprints: [],
-        };
-      }
-
-      const data = overpassData[selectedSatellite.id] as OverpassData;
-
-      if (
-        !data.overpasses ||
-        !Array.isArray(data.overpasses) ||
-        data.overpasses.length === 0
-      ) {
-        console.warn("Invalid overpass data format:", data);
-        return {
-          overpassPoints: [],
-          visibilityFootprints: [],
-          sensorFootprints: [],
-        };
-      }
-
+  const {
+    overpassPoints,
+    visibilityFootprints,
+    sensorFootprints,
+    overpassDates,
+  } = useMemo(() => {
+    if (!selectedSatellite || !overpassData[selectedSatellite.id]) {
       console.log(
-        "Processing overpass data with",
-        data.overpasses.length,
-        "overpasses",
+        "No overpass data available for satellite:",
+        selectedSatellite?.id,
       );
-
-      const points = data.overpasses
-        .map((overpass) => {
-          if (overpass.geometry && overpass.geometry.coordinates) {
-            const [lng, lat, alt] = overpass.geometry.coordinates;
-            const radius = EARTH_RADIUS + (alt || 0) * ALTITUDE_SCALE_FACTOR;
-            return latLngToVector3(lat, lng, radius);
-          }
-          return null;
-        })
-        .filter(Boolean) as THREE.Vector3[];
-
-      const vFootprints = data.overpasses
-        .map((overpass) => {
-          if (
-            overpass.visibility_footprint &&
-            overpass.visibility_footprint.coordinates &&
-            Array.isArray(overpass.visibility_footprint.coordinates)
-          ) {
-            const coordinates = overpass.visibility_footprint.coordinates[0];
-            return geoJsonToVector3Points(coordinates);
-          }
-          return null;
-        })
-        .filter(Boolean) as THREE.Vector3[][];
-
-      const sFootprints = data.overpasses
-        .map((overpass) => {
-          if (
-            overpass.footprints &&
-            overpass.footprints.features &&
-            Array.isArray(overpass.footprints.features)
-          ) {
-            return overpass.footprints.features
-              .map((feature) => {
-                if (
-                  feature.geometry &&
-                  feature.geometry.coordinates &&
-                  Array.isArray(feature.geometry.coordinates)
-                ) {
-                  const coordinates = feature.geometry.coordinates[0];
-                  return geoJsonToVector3Points(coordinates);
-                }
-                return null;
-              })
-              .filter(Boolean);
-          }
-          return null;
-        })
-        .filter(Boolean) as THREE.Vector3[][][];
-
       return {
-        overpassPoints: points,
-        visibilityFootprints: vFootprints,
-        sensorFootprints: sFootprints,
+        overpassPoints: [],
+        visibilityFootprints: [],
+        sensorFootprints: [],
+        overpassDates: [],
       };
-    }, [selectedSatellite, overpassData]);
+    }
+
+    const data = overpassData[selectedSatellite.id] as OverpassData;
+
+    if (
+      !data.overpasses ||
+      !Array.isArray(data.overpasses) ||
+      data.overpasses.length === 0
+    ) {
+      console.warn("Invalid overpass data format:", data);
+      return {
+        overpassPoints: [],
+        visibilityFootprints: [],
+        sensorFootprints: [],
+        overpassDates: [],
+      };
+    }
+
+    console.log(
+      "Processing overpass data with",
+      data.overpasses.length,
+      "overpasses",
+    );
+
+    const points = data.overpasses
+      .map((overpass) => {
+        if (overpass.geometry && overpass.geometry.coordinates) {
+          const [lng, lat, alt] = overpass.geometry.coordinates;
+          const radius = EARTH_RADIUS + (alt || 0) * ALTITUDE_SCALE_FACTOR;
+          return latLngToVector3(lat, lng, radius);
+        }
+        return null;
+      })
+      .filter(Boolean) as THREE.Vector3[];
+
+    const dates = data.overpasses
+      .map((overpass) => overpass.date || "")
+      .filter(Boolean);
+
+    const vFootprints = data.overpasses
+      .map((overpass) => {
+        if (
+          overpass.visibility_footprint &&
+          overpass.visibility_footprint.coordinates &&
+          Array.isArray(overpass.visibility_footprint.coordinates)
+        ) {
+          const coordinates = overpass.visibility_footprint.coordinates[0];
+          return geoJsonToVector3Points(coordinates);
+        }
+        return null;
+      })
+      .filter(Boolean) as THREE.Vector3[][];
+
+    const sFootprints = data.overpasses
+      .map((overpass) => {
+        if (
+          overpass.footprints &&
+          overpass.footprints.features &&
+          Array.isArray(overpass.footprints.features)
+        ) {
+          return overpass.footprints.features
+            .map((feature) => {
+              if (
+                feature.geometry &&
+                feature.geometry.coordinates &&
+                Array.isArray(feature.geometry.coordinates)
+              ) {
+                const coordinates = feature.geometry.coordinates[0];
+                return geoJsonToVector3Points(coordinates);
+              }
+              return null;
+            })
+            .filter(Boolean);
+        }
+        return null;
+      })
+      .filter(Boolean) as THREE.Vector3[][][];
+
+    return {
+      overpassPoints: points,
+      visibilityFootprints: vFootprints,
+      sensorFootprints: sFootprints,
+      overpassDates: dates,
+    };
+  }, [selectedSatellite, overpassData]);
 
   if (!selectedSatellite || isOverpassLoading) {
     return null;
@@ -191,17 +203,65 @@ export default function SatelliteOverpass() {
     return null;
   }
 
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return date.toLocaleString();
+  };
+
   return (
     <group>
-      {/* Render overpass points */}
-      {overpassPoints.map((point, index) => (
-        <group key={`overpass-${index}`}>
-          <mesh position={point}>
-            <sphereGeometry args={[0.05, 16, 16]} />
-            <meshBasicMaterial color="#ff9900" />
-          </mesh>
-        </group>
-      ))}
+      {/* Render overpass points with labels */}
+      {overpassPoints.map((point, index) => {
+        const isFirst = index === 0;
+        const isLast = index === overpassPoints.length - 1;
+        const date = overpassDates[index]
+          ? formatDate(overpassDates[index])
+          : `Pass ${index + 1}`;
+
+        return (
+          <group key={`overpass-${index}`}>
+            {/* Main point */}
+            <mesh position={point}>
+              <sphereGeometry args={[0.03, 32, 32]} />
+              <meshBasicMaterial
+                color={isFirst ? "#00ffff" : isLast ? "#ffff00" : "#ff9900"}
+              />
+            </mesh>
+
+            {/* Glow effect */}
+            <mesh position={point}>
+              <sphereGeometry args={[0.1, 32, 32]} />
+              <meshBasicMaterial
+                color={isFirst ? "#00ffff" : isLast ? "#ffff00" : "#ff9900"}
+                transparent
+                opacity={0.3}
+              />
+            </mesh>
+
+            {/* Label */}
+            <Html position={[point.x, point.y * 1.1, point.z]}>
+              <div
+                style={{
+                  background: "rgba(0, 0, 0, 0.8)",
+                  padding: "2px 4px",
+                  color: "white",
+                  fontSize: "10px",
+                  whiteSpace: "nowrap",
+                  pointerEvents: "none",
+                  userSelect: "none",
+                }}
+              >
+                <div>
+                  {isFirst ? "Start" : isLast ? "End" : `Pass ${index + 1}`}
+                </div>
+                {date && <div style={{ fontSize: "8px" }}>{date}</div>}
+              </div>
+            </Html>
+          </group>
+        );
+      })}
 
       {/* Render visibility footprints */}
       {visibilityFootprints.map((footprint, index) => (
@@ -209,7 +269,7 @@ export default function SatelliteOverpass() {
           <Line
             points={footprint}
             color="#ff9900"
-            lineWidth={1}
+            lineWidth={1.5}
             opacity={0.4}
             dashed={true}
           />
@@ -223,8 +283,8 @@ export default function SatelliteOverpass() {
             <Line
               points={footprint}
               color="#00ff00"
-              lineWidth={1}
-              opacity={0.4}
+              lineWidth={1.5}
+              opacity={0.5}
               dashed={true}
             />
           </group>
