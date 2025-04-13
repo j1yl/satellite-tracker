@@ -27,7 +27,7 @@ export default function Home() {
     return (
         <div className="text-white flex gap-8 mt-[10vh] mb-[10vh] p-4 mx-auto">
             {/* Sidebar with buttons */}
-            <div className="bg-gray-800 p-4 rounded w-[15vw]">
+            <div className="bg-gray-800 p-4 rounded w-[15vw] min-w-[200px]">
                 <h1 className="text-xl text-center font-bold mb-4">Satellites</h1>
                 <div className="overflow-y-scroll max-h-[65vh]">
                     {error && (
