@@ -90,7 +90,10 @@ function latLngToVector3(
   const x = -(radius * Math.sin(phi) * Math.cos(theta));
   const y = radius * Math.cos(phi);
   const z = radius * Math.sin(phi) * Math.sin(theta);
-
+  console.log("cock");
+  console.log(x);
+  console.log(y);
+  console.log(z);
   return new THREE.Vector3(x, y, z);
 }
 
@@ -114,6 +117,8 @@ function SatellitePoint({
     const radius = EARTH_RADIUS + alt * ALTITUDE_SCALE_FACTOR;
 
     const pos = latLngToVector3(lat, lng, radius);
+    console.log("timp");
+    console.log(pos);
     setPosition(pos);
   }, [satellite]);
 
@@ -144,28 +149,62 @@ function Earth() {
   const [selectedSatellite, setSelectedSatellite] = useState<Satellite | null>(
     null,
   );
+  console.log("death is coming");
+  console.log(satellites);
   let currPoint = [];
+  let xVal = 0;
+  let yVal = 0;
+  let zVal = 0;
+  let prevPointMesh = null;
+  let isShiftDown = false;
+  const satellitesRef = useRef<Satellite[]>([]);
+  let linesRef = useRef<Satellite[]>([]);
+  let lineArr = null;
 
   // Fetch satellite data
   useEffect(() => {
+    console.log("chick");
     const fetchSatellites = async () => {
       try {
         const response = await fetch("/api/data");
         const data: SatelliteEndpointResponse = await response.json();
         console.log(data.satellites.features);
         setSatellites(data.satellites.features);
+        console.log("chimp");
+        console.log(satellites);
         console.log("Loaded satellites:", data.satellites.features.length);
       } catch (error) {
         console.error("Error fetching satellite data:", error);
       }
-    };
-    
+    }; 
 
     fetchSatellites();
   }, []);
   useEffect(() => {
+    satellitesRef.current = satellites;
+  }, [satellites]);
+  
+  useEffect(() => {
     const handleClick = (event: MouseEvent) => {
       // Calculate mouse position in normalized device coordinates (-1 to +1) for both components
+
+      window.addEventListener('keydown', (event) => {
+        if (event.key === 'Shift') isShiftDown = true;
+      });
+      
+      window.addEventListener('keyup', (event) => {
+          if (event.key === 'Shift') isShiftDown = false;
+      });
+      
+      // Use it anytime:
+      if (isShiftDown) {
+        console.log('Shift is down');
+        if(typeof prevPointMesh != null) {
+          scene.remove(prevPointMesh);
+        }
+      console.log("gock");
+      console.log(satellitesRef.current);
+        
       const rect = gl.domElement.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -175,11 +214,16 @@ function Earth() {
       if (!earthRef.current) return;
 
       const intersects = raycaster.intersectObject(earthRef.current);
-
+      console.log("sholck");
+      console.log(intersects);
       if (intersects.length > 0) {
         console.log("Earth clicked at:", intersects[0].point);
         const point = intersects[0].point;
         console.log(pointToLatLon(point))
+        console.log(point["x"])
+        xVal = point["x"]
+        yVal = point["y"]
+        zVal = point["z"]
         // Example: Convert point back to spherical coordinates if needed
         const spherical = new THREE.Spherical().setFromVector3(point);
         const lat = 90 - (spherical.phi * 180) / Math.PI;
@@ -187,10 +231,112 @@ function Earth() {
 
         console.log(`Latitude: ${lat}, Longitude: ${lng}`);
         currPoint = [lat, lng];
+        texture.colorSpace = THREE.SRGBColorSpace;
+        const pointGeometry = new THREE.SphereGeometry(0.75, 32, 34); // small radius
+        const pointMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+        const pointMesh = new THREE.Mesh(pointGeometry, pointMaterial);
+
+        // Example: place at latitude 40°, longitude -74° (New York City!)
+        console.log("chum");
+        console.log(xVal);
+        console.log(yVal);
+        const pointPosition = new THREE.Vector3(xVal,yVal,zVal)
+        pointMesh.position.copy(pointPosition);
+
+        scene.add(pointMesh);
+        prevPointMesh = pointMesh;
+        let minDistance = null;
+        let minSatillite = null;
+        satellitesRef.current.forEach((satellite) => {
+          // Code to execute for each element
+          const [lng, lat, alt] = satellite.geometry.coordinates;
+
+          // Calculate radius based on Earth radius plus scaled altitude
+          // This ensures accurate representation of satellite altitude
+          const radius = EARTH_RADIUS + alt * ALTITUDE_SCALE_FACTOR;
+
+          const pos = latLngToVector3(lat, lng, radius);
+
+          console.log(satellite.geometry.coordinates);
+          console.log(satellite.geometry.coordinates[0]);
+          const points = [];
+          points.push(new THREE.Vector3(xVal, yVal, zVal));    // Start at origin
+          points.push(pos); // End at (10, 10, 10)
+          let totalSatDistance = (Math.pow(Math.abs(xVal - pos["x"]),2)) + (Math.pow(Math.abs(yVal - pos["y"]),2)) + (Math.pow(Math.abs(zVal - pos["z"]),2));
+          //console.log(pos["x"]);
+          console.log("slop");
+          console.log(totalSatDistance);
+          if(minDistance == null || totalSatDistance < minDistance) {
+            
+            minDistance = totalSatDistance;
+            minSatillite = satellite;
+            console.log("timp");
+            console.log(totalSatDistance);
+          }
+
+          const geometry = new THREE.BufferGeometry().setFromPoints(points);
+          const material = new THREE.LineBasicMaterial({ color: 0xff0000 , linewidth: 1});
+          const line = new THREE.Line(geometry, material);
+
+          scene.add(line);
+          if(lineArr == null) {
+            lineArr = [line];
+          } else {
+            lineArr.push(line);
+          }
+          linesRef.current = lineArr;
+          //scene.remove(line);
+
+
+        });
+        console.log("fwock");
+        console.log(minSatillite);
+        console.log(linesRef);
+        
+        const [long, latt, alti] = minSatillite.geometry.coordinates;
+
+        const radius = EARTH_RADIUS + alti * ALTITUDE_SCALE_FACTOR;
+
+        const pos = latLngToVector3(latt, long, radius);
+        console.log("blip");
+        console.log(xVal);
+        console.log(yVal);
+        console.log(zVal);
+        console.log(minSatillite.geometry.coordinates);
+        console.log(minSatillite.geometry.coordinates[0]);
+        const points = [];
+        points.push(new THREE.Vector3(xVal, yVal, zVal));    // Start at origin
+        points.push(pos); // End at (10, 10, 10)
+        console.log("shlub");
+        console.log(points[0]);
+        console.log(points[1]);
+
+
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const material = new THREE.LineBasicMaterial({ color: 0x00ff00});
+        const line = new THREE.Line(geometry, material);
+
+        scene.add(line);
+        lineArr.push(line);
+        
+        linesRef.current = lineArr;
+
+      }
       }
     };
 
     gl.domElement.addEventListener("click", handleClick);
+    
+    window.addEventListener('keydown', (event) => {
+      console.log('Key down:', event.key);
+      console.log("tor");
+      console.log(linesRef.current);
+      if(event.key == "r") { 
+        linesRef.current.forEach((line) => {
+          scene.remove(line);
+        });
+      }
+    });
 
     return () => {
       gl.domElement.removeEventListener("click", handleClick);
@@ -216,25 +362,17 @@ function Earth() {
   const texture = useTexture(
     "https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_atmos_2048.jpg",
   );
-  texture.colorSpace = THREE.SRGBColorSpace;
-  const pointGeometry = new THREE.SphereGeometry(100, 16, 16); // small radius
-  const pointMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-  const pointMesh = new THREE.Mesh(pointGeometry, pointMaterial);
-
-  // Example: place at latitude 40°, longitude -74° (New York City!)
-  const pointPosition = latLngToVector3(40.7128, -74.0060, EARTH_RADIUS);
-  pointMesh.position.copy(pointPosition);
-
-  scene.add(pointMesh);
+  
   // Handle satellite click
   const handleSatelliteClick = (satellite: Satellite) => {
     setSelectedSatellite(satellite);
     console.log("black")
   };
-
+  console.log("hmm");
+  console.log(satellites);
   return (
     <>
-      <mesh
+    <mesh
         ref={earthRef}
         geometry={earthGeometry}
         rotation={[-0.015, -Math.PI / 2, 0]}
@@ -245,12 +383,17 @@ function Earth() {
           side={THREE.DoubleSide}
         />
       </mesh>
-      <mesh key={"clicked"} position={currPoint}>
-        <sphereGeometry args={[100, 16, 16]} />
-        <meshBasicMaterial color="red" />
-      </mesh>
+      
 
       {/* Render satellite points */}
+      {satellites.map((satellite) => (
+        <SatellitePoint
+          key={satellite.id}
+          satellite={satellite}
+          onClick={handleSatelliteClick}
+        />
+      ))}
+
       {satellites.map((satellite) => (
         <SatellitePoint
           key={satellite.id}
