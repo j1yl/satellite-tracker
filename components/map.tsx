@@ -12,7 +12,7 @@ import {
 // Constants
 const EARTH_RADIUS = 10;
 const SATELLITE_POINT_SIZE = 0.15;
-const ALTITUDE_SCALE_FACTOR = 0.000001;
+const ALTITUDE_SCALE_FACTOR = 0.000004;
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
@@ -229,10 +229,50 @@ function Earth() {
         const lat = 90 - (spherical.phi * 180) / Math.PI;
         const lng = ((spherical.theta * 180) / Math.PI);
 
+        const pointG = new THREE.SphereGeometry(0.25, 32, 34); // small radius
+        const pointM = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+        const pointMe = new THREE.Mesh(pointG, pointM);
+
+        // Example: place at latitude 40°, longitude -74° (New York City!)
+        console.log("chum");
+        console.log(xVal);
+        console.log(yVal);
+        const pointP = new THREE.Vector3(2,1,10)
+        pointMe.position.copy(pointP);
+
+        scene.add(pointMe);
+
+        // Create the geometry: (radius, height, radialSegments)
+        const geo = new THREE.ConeGeometry(
+          2,           // radius of the base
+          3,           // height of the cone
+          8,   // how many segments around the base
+          1,   // how many segments along the height
+          false,    // should the bottom be open or closed
+          100,       // start angle for first segment
+          Math.PI * 2 // central angle of the circular sector
+        );
+
+        // Create a material
+        const mat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+
+        // Create the mesh (geometry + material)
+        const cone = new THREE.Mesh(geo, mat);
+
+        cone.position.set(15,0,0);
+        cone.rotation.x = 90;
+        cone.rotation.y = 0;
+        cone.rotation.z = 30;
+
+        // Add the cone to the scene
+        scene.add(cone);
+
+
+
         console.log(`Latitude: ${lat}, Longitude: ${lng}`);
         currPoint = [lat, lng];
         texture.colorSpace = THREE.SRGBColorSpace;
-        const pointGeometry = new THREE.SphereGeometry(0.75, 32, 34); // small radius
+        const pointGeometry = new THREE.SphereGeometry(0.25, 32, 34); // small radius
         const pointMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
         const pointMesh = new THREE.Mesh(pointGeometry, pointMaterial);
 
@@ -277,6 +317,53 @@ function Earth() {
           const geometry = new THREE.BufferGeometry().setFromPoints(points);
           const material = new THREE.LineBasicMaterial({ color: 0xff0000 , linewidth: 1});
           const line = new THREE.Line(geometry, material);
+
+          // Create the geometry: (radius, height, radialSegments)
+        const geo = new THREE.ConeGeometry(
+          1,           // radius of the base
+          4,           // height of the cone
+          8,   // how many segments around the base
+          3,   // how many segments along the height
+          false,    // should the bottom be open or closed
+          100,       // start angle for first segment
+          Math.PI * 2 // central angle of the circular sector
+        );
+
+        // Create a material
+        const mat = new THREE.MeshBasicMaterial({
+          color: 0xff0000,
+          transparent: true,
+          opacity: 0.5 // any value between 0 (fully transparent) and 1 (fully opaque)
+        });
+
+        // Create the mesh (geometry + material)
+        const cone = new THREE.Mesh(geo, mat);
+
+        cone.position.set(pos["x"],pos["y"],pos["z"]);
+        const deltaX = (xVal - pos["x"]); // adjacent
+        const deltaY = (yVal - pos["y"]); // adjacent
+        const deltaZ = (zVal - pos["z"]); // opposite
+        const thetaX = (Math.atan2(deltaZ,deltaX));
+        const thetaY = Math.atan2(deltaY,deltaX);
+        const thetaZ = Math.atan2(deltaY,deltaZ);
+
+        
+        console.log("angles");
+        console.log(thetaX);
+        console.log(thetaY);
+        console.log(thetaZ);
+
+        // Add the cone to the scene
+        scene.add(cone);
+        console.log("tim");
+        console.log(pos["x"]);
+        console.log(pos["y"]);
+        console.log(pos["z"]);
+        console.log("tom");
+        console.log()
+        cone.lookAt(new THREE.Vector3(xVal, yVal, zVal));
+        cone.rotateX(Math.PI / 2);
+        cone.rotateX(Math.PI);
 
           scene.add(line);
           if(lineArr == null) {
