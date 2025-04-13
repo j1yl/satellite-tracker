@@ -83,9 +83,11 @@ function latLngToVector3(
 function SatellitePoint({
   satellite,
   onClick,
+  selectedSatellite
 }: {
   satellite: Satellite;
   onClick: (satellite: Satellite) => void;
+  selectedSatellite: Satellite | null;
 }) {
   const [hovered, setHovered] = useState(false);
   const [position, setPosition] = useState<THREE.Vector3>(new THREE.Vector3());
@@ -114,20 +116,25 @@ function SatellitePoint({
       >
         <sphereGeometry args={[SATELLITE_POINT_SIZE, 32, 32]} />
         <meshBasicMaterial
-          color={hovered ? "rgb(255,0,0)" : "rgb(255,255,255)"}
+          color={hovered || (selectedSatellite && satellite.id === selectedSatellite.id)? "rgb(255,0,0)" : "rgb(255,255,255)"}
         />
       </mesh>
     </group>
   );
 }
 
+type Props = {
+  selectedSat: Satellite | null;
+  setSelectedSat: (sat: Satellite | null) => void;
+};
+
 // Earth component
-function Earth() {
+function Earth({
+  selectedSat,
+  setSelectedSat,
+}: Props) {
   const earthRef = useRef<THREE.Mesh>(null!);
   const [satellites, setSatellites] = useState<Satellite[]>([]);
-  const [selectedSatellite, setSelectedSatellite] = useState<Satellite | null>(
-    null,
-  );
 
   // Fetch satellite data
   useEffect(() => {
@@ -169,7 +176,7 @@ function Earth() {
 
   // Handle satellite click
   const handleSatelliteClick = (satellite: Satellite) => {
-    setSelectedSatellite(satellite);
+    setSelectedSat(satellite);
   };
 
   return (
@@ -192,11 +199,12 @@ function Earth() {
           key={satellite.id}
           satellite={satellite}
           onClick={handleSatelliteClick}
+          selectedSatellite={selectedSat}
         />
       ))}
 
       {/* Display satellite info when clicking on a satellite */}
-      {selectedSatellite && (
+      {selectedSat && (
         <Html position={[0, 0, 0]}>
           <div
             style={{
@@ -214,23 +222,23 @@ function Earth() {
             <div style={{ fontWeight: "bold", marginBottom: "5px" }}>
               Satellite Information
             </div>
-            <div>Name: {selectedSatellite.properties.name}</div>
-            <div>NORAD ID: {selectedSatellite.properties.norad_id}</div>
+            <div>Name: {selectedSat.properties.name}</div>
+            <div>NORAD ID: {selectedSat.properties.norad_id}</div>
             <div>
-              Status: {selectedSatellite.properties.open ? "Open" : "Closed"}
+              Status: {selectedSat.properties.open ? "Open" : "Closed"}
             </div>
             <div>
-              Latitude: {selectedSatellite.geometry.coordinates[1].toFixed(2)}°
+              Latitude: {selectedSat.geometry.coordinates[1].toFixed(2)}°
             </div>
             <div>
-              Longitude: {selectedSatellite.geometry.coordinates[0].toFixed(2)}°
+              Longitude: {selectedSat.geometry.coordinates[0].toFixed(2)}°
             </div>
             <div>
-              Altitude: {selectedSatellite.geometry.coordinates[2].toFixed(2)}{" "}
+              Altitude: {selectedSat.geometry.coordinates[2].toFixed(2)}{" "}
               km
             </div>
             <button
-              onClick={() => setSelectedSatellite(null)}
+              onClick={() => setSelectedSat(null)}
               style={{
                 marginTop: "10px",
                 background: "#333",
@@ -266,7 +274,10 @@ function CameraSetup() {
 }
 
 // Main component
-export default function SatelliteMap() {
+export default function SatelliteMap({
+  selectedSat,
+  setSelectedSat,
+}: Props) {
   return (
     <div style={{ width: "100%", height: "100vh", background: "#000" }}>
       <Canvas>
@@ -284,7 +295,10 @@ export default function SatelliteMap() {
           args={[15, 30, "#cc0", "#999"]}
           rotation={[0, -Math.PI, 0]}
         /> */}
-        <Earth />
+        <Earth 
+            selectedSat={selectedSat}
+            setSelectedSat={setSelectedSat}
+          />
         <OrbitControls enablePan={false} maxDistance={30} minDistance={20} />
       </Canvas>
     </div>
