@@ -10,8 +10,8 @@ import {
 } from "../types/SatelliteEndpointResponse";
 
 // Constants
-const EARTH_RADIUS = 5;
-const SATELLITE_POINT_SIZE = 0.1;
+const EARTH_RADIUS = 10;
+const SATELLITE_POINT_SIZE = 0.15;
 const ALTITUDE_SCALE_FACTOR = 0.000001;
 
 function quadify(geometry: THREE.BufferGeometry, distance: number) {

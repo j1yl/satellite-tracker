@@ -6,7 +6,7 @@ import { Satellite } from "@/types/SatelliteEndpointResponse";
 export default function Home() {
     const [satellites, setSatellites] = useState<Satellite[]>([]);
     const [selectedSat, setSelectedSat] = useState<Satellite | null>(null);
-    const [error, setError] = useState<any>(null);
+    const [error, setError] = useState<boolean>(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -14,9 +14,10 @@ export default function Home() {
                 const response = await fetch("/api/data");
                 const data = await response.json();
                 setSatellites(data.satellites.features);
+                setError(false);
             } catch (err) {
                 console.error("Error fetching satellite data:", err);
-                setError(err);
+                setError(true);
             }
         };
 
@@ -29,7 +30,11 @@ export default function Home() {
             <div className="bg-gray-800 p-4 rounded w-[15vw]">
                 <h1 className="text-xl text-center font-bold mb-4">Satellites</h1>
                 <div className="overflow-y-scroll max-h-[65vh]">
-                    {error && <p className="text-red-500">Failed to load data</p>}
+                    {error && (
+                        <p className="text-red-500">
+                            {"An error occurred"}
+                        </p>
+                    )}
                     <ul className="space-y-2">
                         {satellites.map((sat, index) => (
                             <li key={index}>
