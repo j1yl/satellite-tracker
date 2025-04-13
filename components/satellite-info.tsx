@@ -71,7 +71,20 @@ export default function SatelliteInfo({
                 {selectedSat.properties.name}
                 </h2>
                 <pre className="text-sm whitespace-pre-wrap break-words">
-                {JSON.stringify(selectedSat.properties, null, 2)}
+                <div>NORAD ID: {selectedSat.properties.norad_id}</div>
+                <div>
+                Status: {selectedSat.properties.open ? "Open" : "Closed"}
+                </div>
+                <div>
+                Latitude: {selectedSat.geometry.coordinates[1].toFixed(2)}°
+                </div>
+                <div>
+                Longitude: {selectedSat.geometry.coordinates[0].toFixed(2)}°
+                </div>
+                <div>
+                Altitude: {selectedSat.geometry.coordinates[2].toFixed(2)}{" "}
+                km
+                </div>
                 </pre>
             </div>
             )}

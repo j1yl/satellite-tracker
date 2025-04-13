@@ -2,7 +2,7 @@
 
 import React, { useRef, useState, useEffect } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
-import { OrbitControls, useTexture, Html } from "@react-three/drei";
+import { OrbitControls, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import {
   Satellite,
@@ -202,58 +202,6 @@ function Earth({
           selectedSatellite={selectedSat}
         />
       ))}
-
-      {/* Display satellite info when clicking on a satellite */}
-      {selectedSat && (
-        <Html position={[0, 0, 0]}>
-          <div
-            style={{
-              position: "absolute",
-              top: "10px",
-              left: "10px",
-              background: "rgba(0,0,0,0.7)",
-              color: "#fff",
-              padding: "10px",
-              borderRadius: "5px",
-              fontFamily: "monospace",
-              maxWidth: "300px",
-            }}
-          >
-            <div style={{ fontWeight: "bold", marginBottom: "5px" }}>
-              Satellite Information
-            </div>
-            <div>Name: {selectedSat.properties.name}</div>
-            <div>NORAD ID: {selectedSat.properties.norad_id}</div>
-            <div>
-              Status: {selectedSat.properties.open ? "Open" : "Closed"}
-            </div>
-            <div>
-              Latitude: {selectedSat.geometry.coordinates[1].toFixed(2)}°
-            </div>
-            <div>
-              Longitude: {selectedSat.geometry.coordinates[0].toFixed(2)}°
-            </div>
-            <div>
-              Altitude: {selectedSat.geometry.coordinates[2].toFixed(2)}{" "}
-              km
-            </div>
-            <button
-              onClick={() => setSelectedSat(null)}
-              style={{
-                marginTop: "10px",
-                background: "#333",
-                color: "#fff",
-                border: "none",
-                padding: "5px 10px",
-                borderRadius: "3px",
-                cursor: "pointer",
-              }}
-            >
-              Close
-            </button>
-          </div>
-        </Html>
-      )}
     </>
   );
 }
