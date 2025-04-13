@@ -13,6 +13,21 @@ import {
 const EARTH_RADIUS = 10;
 const SATELLITE_POINT_SIZE = 0.15;
 const ALTITUDE_SCALE_FACTOR = 0.000001;
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+function pointToLatLon(point) {
+  const radius = EARTH_RADIUS; // use your sphere radius
+  const x = point.x;
+  const y = point.y;
+  const z = point.z;
+
+  const lat = Math.asin(y / radius) * (180 / Math.PI);
+  const lon = (Math.atan2(z, x) * (180 / Math.PI));
+
+  return { lat, lon };
+}
+
 
 function quadify(geometry: THREE.BufferGeometry, distance: number) {
   const pos = geometry.attributes.position;
@@ -124,10 +139,12 @@ function SatellitePoint({
 // Earth component
 function Earth() {
   const earthRef = useRef<THREE.Mesh>(null!);
+  const {camera, scene, gl} = useThree();
   const [satellites, setSatellites] = useState<Satellite[]>([]);
   const [selectedSatellite, setSelectedSatellite] = useState<Satellite | null>(
     null,
   );
+  let currPoint = [];
 
   // Fetch satellite data
   useEffect(() => {
@@ -135,16 +152,50 @@ function Earth() {
       try {
         const response = await fetch("/api/data");
         const data: SatelliteEndpointResponse = await response.json();
-
+        console.log(data.satellites.features);
         setSatellites(data.satellites.features);
         console.log("Loaded satellites:", data.satellites.features.length);
       } catch (error) {
         console.error("Error fetching satellite data:", error);
       }
     };
+    
 
     fetchSatellites();
   }, []);
+  useEffect(() => {
+    const handleClick = (event: MouseEvent) => {
+      // Calculate mouse position in normalized device coordinates (-1 to +1) for both components
+      const rect = gl.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+
+      if (!earthRef.current) return;
+
+      const intersects = raycaster.intersectObject(earthRef.current);
+
+      if (intersects.length > 0) {
+        console.log("Earth clicked at:", intersects[0].point);
+        const point = intersects[0].point;
+        console.log(pointToLatLon(point))
+        // Example: Convert point back to spherical coordinates if needed
+        const spherical = new THREE.Spherical().setFromVector3(point);
+        const lat = 90 - (spherical.phi * 180) / Math.PI;
+        const lng = ((spherical.theta * 180) / Math.PI);
+
+        console.log(`Latitude: ${lat}, Longitude: ${lng}`);
+        currPoint = [lat, lng];
+      }
+    };
+
+    gl.domElement.addEventListener("click", handleClick);
+
+    return () => {
+      gl.domElement.removeEventListener("click", handleClick);
+    };
+  }, [camera, gl, scene]);
 
   // Create Earth geometry
   const earthGeometry = new THREE.SphereGeometry(
@@ -166,10 +217,19 @@ function Earth() {
     "https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_atmos_2048.jpg",
   );
   texture.colorSpace = THREE.SRGBColorSpace;
+  const pointGeometry = new THREE.SphereGeometry(100, 16, 16); // small radius
+  const pointMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+  const pointMesh = new THREE.Mesh(pointGeometry, pointMaterial);
 
+  // Example: place at latitude 40°, longitude -74° (New York City!)
+  const pointPosition = latLngToVector3(40.7128, -74.0060, EARTH_RADIUS);
+  pointMesh.position.copy(pointPosition);
+
+  scene.add(pointMesh);
   // Handle satellite click
   const handleSatelliteClick = (satellite: Satellite) => {
     setSelectedSatellite(satellite);
+    console.log("black")
   };
 
   return (
@@ -184,6 +244,10 @@ function Earth() {
           map={texture}
           side={THREE.DoubleSide}
         />
+      </mesh>
+      <mesh key={"clicked"} position={currPoint}>
+        <sphereGeometry args={[100, 16, 16]} />
+        <meshBasicMaterial color="red" />
       </mesh>
 
       {/* Render satellite points */}
@@ -255,7 +319,7 @@ function CameraSetup() {
   const { camera } = useThree();
 
   useEffect(() => {
-    camera.position.set(0, 0, 30);
+    camera.position.set(0, 0, 5);
     if (camera instanceof THREE.PerspectiveCamera) {
       camera.fov = 70;
       camera.updateProjectionMatrix();
@@ -263,6 +327,10 @@ function CameraSetup() {
   }, [camera]);
 
   return null;
+}
+
+function satelliteLines(){
+
 }
 
 // Main component
