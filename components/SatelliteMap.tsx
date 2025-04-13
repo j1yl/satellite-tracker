@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useRef, Suspense, useState, useEffect } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, useTexture, Html } from "@react-three/drei";
 import * as THREE from "three";
 import { Satellite } from "../types";
@@ -92,6 +92,8 @@ function SatellitePoint({
 }) {
   const [hovered, setHovered] = useState(false);
   const [position, setPosition] = useState<THREE.Vector3>(new THREE.Vector3());
+  const { selectedSatellite } = useSatellites();
+  const isSelected = selectedSatellite?.id === satellite.id;
 
   useEffect(() => {
     // Convert lat/lng to 3D position
@@ -117,7 +119,13 @@ function SatellitePoint({
       >
         <sphereGeometry args={[SATELLITE_POINT_SIZE, 32, 32]} />
         <meshBasicMaterial
-          color={hovered ? "rgb(255,0,255)" : "rgb(255,255,255)"}
+          color={
+            isSelected
+              ? "rgb(255,0,0)"
+              : hovered
+                ? "rgb(255,0,255)"
+                : "rgb(255,255,255)"
+          }
         />
       </mesh>
     </group>
@@ -174,6 +182,166 @@ function SatelliteErrorState({ error }: { error: Error }) {
 function Earth() {
   const earthRef = useRef<THREE.Mesh>(null!);
   const { satellites, setSelectedSatellite, error } = useSatellites();
+  const { camera, scene, gl } = useThree();
+  const [isShiftDown, setIsShiftDown] = useState(false);
+  const [prevPointMesh, setPrevPointMesh] = useState<THREE.Mesh | null>(null);
+  const linesRef = useRef<THREE.Line[]>([]);
+  const satellitesRef = useRef<Satellite[]>(satellites);
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+
+  // Update satellitesRef when satellites change
+  useEffect(() => {
+    satellitesRef.current = satellites;
+  }, [satellites]);
+
+  // Handle keyboard events for Shift key
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Shift") {
+        setIsShiftDown(true);
+      }
+    };
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.key === "Shift") {
+        setIsShiftDown(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
+
+  // Handle click events for triangularization
+  useEffect(() => {
+    const handleClick = (event: MouseEvent) => {
+      if (!isShiftDown) return;
+
+      // Remove previous point mesh and all lines if they exist
+      if (prevPointMesh) {
+        scene.remove(prevPointMesh);
+        setPrevPointMesh(null);
+      }
+
+      // Clear all existing lines
+      linesRef.current.forEach((line) => {
+        scene.remove(line);
+      });
+      linesRef.current = [];
+
+      // Calculate mouse position in normalized device coordinates
+      const rect = gl.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+
+      if (!earthRef.current) return;
+
+      const intersects = raycaster.intersectObject(earthRef.current);
+
+      if (intersects.length > 0) {
+        const point = intersects[0].point;
+        const xVal = point.x;
+        const yVal = point.y;
+        const zVal = point.z;
+
+        // Create a yellow point at the clicked location
+        const pointGeometry = new THREE.SphereGeometry(0.05, 32, 32);
+        const pointMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+        const pointMesh = new THREE.Mesh(pointGeometry, pointMaterial);
+        pointMesh.position.copy(point);
+        scene.add(pointMesh);
+        setPrevPointMesh(pointMesh);
+
+        // Find the closest satellite
+        let minDistance = Infinity;
+        let closestSatellite: Satellite | null = null;
+
+        satellitesRef.current.forEach((satellite) => {
+          const [lng, lat, alt] = satellite.geometry.coordinates;
+          const radius = EARTH_RADIUS + alt * ALTITUDE_SCALE_FACTOR;
+          const pos = latLngToVector3(lat, lng, radius);
+
+          // Create a red line from the clicked point to this satellite
+          const points = [];
+          points.push(new THREE.Vector3(xVal, yVal, zVal));
+          points.push(pos);
+
+          const geometry = new THREE.BufferGeometry().setFromPoints(points);
+          const material = new THREE.LineBasicMaterial({
+            color: 0xff0000,
+            linewidth: 1,
+          });
+          const line = new THREE.Line(geometry, material);
+          scene.add(line);
+          linesRef.current.push(line);
+
+          // Calculate distance to find the closest satellite
+          const distance =
+            Math.pow(xVal - pos.x, 2) +
+            Math.pow(yVal - pos.y, 2) +
+            Math.pow(zVal - pos.z, 2);
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestSatellite = satellite;
+          }
+        });
+
+        // Create a green line to the closest satellite
+        if (closestSatellite) {
+          const satellite = closestSatellite as Satellite;
+          const [lng, lat, alt] = satellite.geometry.coordinates;
+          const radius = EARTH_RADIUS + alt * ALTITUDE_SCALE_FACTOR;
+          const pos = latLngToVector3(lat, lng, radius);
+
+          const points = [];
+          points.push(new THREE.Vector3(xVal, yVal, zVal));
+          points.push(pos);
+
+          const geometry = new THREE.BufferGeometry().setFromPoints(points);
+          const material = new THREE.LineBasicMaterial({
+            color: 0x00ff00,
+            linewidth: 2,
+          });
+          const line = new THREE.Line(geometry, material);
+          scene.add(line);
+          linesRef.current.push(line);
+        }
+      }
+    };
+
+    // Handle 'r' key to remove all lines and the yellow point
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "r" || event.key === "R") {
+        // Remove all lines
+        linesRef.current.forEach((line) => {
+          scene.remove(line);
+        });
+        linesRef.current = [];
+
+        // Remove the yellow point
+        if (prevPointMesh) {
+          scene.remove(prevPointMesh);
+          setPrevPointMesh(null);
+        }
+      }
+    };
+
+    gl.domElement.addEventListener("click", handleClick);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      gl.domElement.removeEventListener("click", handleClick);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [camera, gl, scene, isShiftDown, prevPointMesh, mouse, raycaster]);
 
   // Create Earth geometry
   const earthGeometry = new THREE.SphereGeometry(
@@ -259,7 +427,7 @@ export default function SatelliteMap() {
         style={{ background: "black" }}
       >
         <Suspense fallback={<SatelliteLoadingState />}>
-          <ambientLight intensity={0.5} />
+          <ambientLight intensity={1.3} />
           <pointLight position={[10, 10, 10]} intensity={1} />
           <Earth />
           <SatelliteTrajectory />

@@ -31,8 +31,9 @@ export default function SatelliteUI() {
   return (
     <>
       {!selectedSatellite && (
-        <div className="pointer-events-none fixed top-0 left-1/2 mt-2 -translate-x-1/2 bg-white px-1 text-black uppercase select-none">
+        <div className="pointer-events-none fixed top-0 left-1/2 mt-2 flex -translate-x-1/2 flex-col items-center bg-white px-1 text-black uppercase select-none">
           <div>Click any satellite (white point) to get started</div>
+          <p>Shift + click to triangulate, R to reset</p>
         </div>
       )}
 
@@ -61,6 +62,30 @@ export default function SatelliteUI() {
             </div>
             <br />
 
+            {/* Satellite List */}
+            <div className="max-h-64 overflow-y-auto border border-white/20">
+              <div className="space-y-1">
+                {satellites.map((satellite) => (
+                  <div
+                    key={satellite.id}
+                    className={`cursor-pointer p-1 hover:bg-white/10 ${
+                      selectedSatellite?.id === satellite.id
+                        ? "bg-red-500/30"
+                        : ""
+                    }`}
+                    onClick={() => setSelectedSatellite(satellite)}
+                  >
+                    <span className="text-white">
+                      {satellite.properties.name}
+                    </span>
+                    <span className="ml-2 text-xs text-white/60">
+                      (ID: {satellite.id})
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <br />
             <div>
               <p>
                 Selected satellite:{" "}
@@ -175,28 +200,21 @@ export default function SatelliteUI() {
         </p>
         <p className="text-white">
           Built by{" "}
-          <a href="https://github.com/j1yl" className="text-sky-300">
+          <a href="https://github.com/j1yl" className="text-purple-300">
             Joe
           </a>
-          ,
-          <a href="https://github.com/nategries1" className="text-sky-300">
+          ,{" "}
+          <a href="https://github.com/nategries1" className="text-purple-300">
             Nate
           </a>
-          ,
+          ,{" "}
           <a
             href="https://github.com/pythonrogrammer2"
-            className="text-sky-300"
+            className="text-purple-300"
           >
             Braedon
           </a>
         </p>
-        <Link
-          href="https://www.webverry.com"
-          target="_blank"
-          className="text-red-500"
-        >
-          Hire me @ Webverry
-        </Link>
       </div>
     </>
   );
