@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { SAT_ENDPOINT } from "@/lib/constants";
-import { SatelliteEndpointResponse } from "@/types/SatelliteEndpointResponse";
+import { SatelliteEndpointResponse } from "@/types";
 
 export async function GET() {
   const response = await fetch(SAT_ENDPOINT + "?api_key=" + process.env.APIKEY);

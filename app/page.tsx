@@ -1,9 +1,14 @@
-import SatelliteMap from "@/components/map";
+import SatelliteMap from "@/components/SatelliteMap";
+import SatelliteUI from "@/components/SatelliteUI";
+import { SatellitesProvider } from "@/lib/context/satellites";
 
-export default async function Home() {
+export default function Home() {
   return (
-    <>
-      <SatelliteMap />
-    </>
+    <SatellitesProvider>
+      <div className="relative h-screen w-full">
+        <SatelliteMap />
+        <SatelliteUI />
+      </div>
+    </SatellitesProvider>
   );
 }

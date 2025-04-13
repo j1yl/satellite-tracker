@@ -1,17 +1,20 @@
 "use client";
 
-import React, { useRef, useState, useEffect } from "react";
-import { Canvas, useThree } from "@react-three/fiber";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import React, { useRef, Suspense, useState, useEffect } from "react";
+import { Canvas } from "@react-three/fiber";
 import { OrbitControls, useTexture, Html } from "@react-three/drei";
 import * as THREE from "three";
-import {
-  Satellite,
-  SatelliteEndpointResponse,
-} from "../types/SatelliteEndpointResponse";
+import { Satellite } from "../types";
+import { useSatellites } from "@/lib/context/satellites";
+import SatelliteTrajectory from "./SatelliteTrajectory";
+import SatelliteOverpass from "./SatelliteOverpass";
+import SatelliteTimeline from "./SatelliteTimeline";
 
 // Constants
 const EARTH_RADIUS = 5;
-const SATELLITE_POINT_SIZE = 0.1;
+const SATELLITE_POINT_SIZE = 0.05;
 const ALTITUDE_SCALE_FACTOR = 0.000001;
 
 function quadify(geometry: THREE.BufferGeometry, distance: number) {
@@ -114,37 +117,63 @@ function SatellitePoint({
       >
         <sphereGeometry args={[SATELLITE_POINT_SIZE, 32, 32]} />
         <meshBasicMaterial
-          color={hovered ? "rgb(255,0,0)" : "rgb(255,255,255)"}
+          color={hovered ? "rgb(255,0,255)" : "rgb(255,255,255)"}
         />
       </mesh>
     </group>
   );
 }
 
+// Loading component for satellites
+function SatelliteLoadingState() {
+  return (
+    <Html position={[0, 0, 0]}>
+      <div
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          background: "rgba(0,0,0,0.7)",
+          color: "#fff",
+          padding: "20px",
+          borderRadius: "5px",
+          fontFamily: "monospace",
+        }}
+      >
+        Loading satellites...
+      </div>
+    </Html>
+  );
+}
+
+// Error component for satellites
+function SatelliteErrorState({ error }: { error: Error }) {
+  return (
+    <Html position={[0, 0, 0]}>
+      <div
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          background: "rgba(0,0,0,0.7)",
+          color: "#fff",
+          padding: "20px",
+          borderRadius: "5px",
+          fontFamily: "monospace",
+        }}
+      >
+        Error loading satellites: {error.message}
+      </div>
+    </Html>
+  );
+}
+
 // Earth component
 function Earth() {
   const earthRef = useRef<THREE.Mesh>(null!);
-  const [satellites, setSatellites] = useState<Satellite[]>([]);
-  const [selectedSatellite, setSelectedSatellite] = useState<Satellite | null>(
-    null,
-  );
-
-  // Fetch satellite data
-  useEffect(() => {
-    const fetchSatellites = async () => {
-      try {
-        const response = await fetch("/api/data");
-        const data: SatelliteEndpointResponse = await response.json();
-
-        setSatellites(data.satellites.features);
-        console.log("Loaded satellites:", data.satellites.features.length);
-      } catch (error) {
-        console.error("Error fetching satellite data:", error);
-      }
-    };
-
-    fetchSatellites();
-  }, []);
+  const { satellites, setSelectedSatellite, error } = useSatellites();
 
   // Create Earth geometry
   const earthGeometry = new THREE.SphereGeometry(
@@ -165,7 +194,6 @@ function Earth() {
   const texture = useTexture(
     "https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_atmos_2048.jpg",
   );
-  texture.colorSpace = THREE.SRGBColorSpace;
 
   // Handle satellite click
   const handleSatelliteClick = (satellite: Satellite) => {
@@ -173,20 +201,18 @@ function Earth() {
   };
 
   return (
-    <>
-      <mesh
-        ref={earthRef}
-        geometry={earthGeometry}
-        rotation={[-0.015, -Math.PI / 2, 0]}
-      >
+    <group>
+      <mesh ref={earthRef}>
+        <primitive object={earthGeometry} />
         <meshStandardMaterial
-          color="#fff"
           map={texture}
-          side={THREE.DoubleSide}
+          roughness={0.7}
+          metalness={0.1}
+          emissive={new THREE.Color(0x112244)}
+          emissiveIntensity={0.1}
         />
       </mesh>
 
-      {/* Render satellite points */}
       {satellites.map((satellite) => (
         <SatellitePoint
           key={satellite.id}
@@ -195,98 +221,53 @@ function Earth() {
         />
       ))}
 
-      {/* Display satellite info when clicking on a satellite */}
-      {selectedSatellite && (
-        <Html position={[0, 0, 0]}>
-          <div
-            style={{
-              position: "absolute",
-              top: "10px",
-              left: "10px",
-              background: "rgba(0,0,0,0.7)",
-              color: "#fff",
-              padding: "10px",
-              borderRadius: "5px",
-              fontFamily: "monospace",
-              maxWidth: "300px",
-            }}
-          >
-            <div style={{ fontWeight: "bold", marginBottom: "5px" }}>
-              Satellite Information
-            </div>
-            <div>Name: {selectedSatellite.properties.name}</div>
-            <div>NORAD ID: {selectedSatellite.properties.norad_id}</div>
-            <div>
-              Status: {selectedSatellite.properties.open ? "Open" : "Closed"}
-            </div>
-            <div>
-              Latitude: {selectedSatellite.geometry.coordinates[1].toFixed(2)}°
-            </div>
-            <div>
-              Longitude: {selectedSatellite.geometry.coordinates[0].toFixed(2)}°
-            </div>
-            <div>
-              Altitude: {selectedSatellite.geometry.coordinates[2].toFixed(2)}{" "}
-              km
-            </div>
-            <button
-              onClick={() => setSelectedSatellite(null)}
-              style={{
-                marginTop: "10px",
-                background: "#333",
-                color: "#fff",
-                border: "none",
-                padding: "5px 10px",
-                borderRadius: "3px",
-                cursor: "pointer",
-              }}
-            >
-              Close
-            </button>
-          </div>
-        </Html>
-      )}
-    </>
+      {error && <SatelliteErrorState error={error} />}
+    </group>
   );
 }
 
 // Camera setup component
 function CameraSetup() {
-  const { camera } = useThree();
+  const controlsRef = useRef<any>(null);
 
   useEffect(() => {
-    camera.position.set(0, 0, 30);
-    if (camera instanceof THREE.PerspectiveCamera) {
-      camera.fov = 70;
-      camera.updateProjectionMatrix();
+    if (controlsRef.current) {
+      controlsRef.current.target.set(0, 0, 0);
+      controlsRef.current.update();
     }
-  }, [camera]);
+  }, []);
 
-  return null;
+  return (
+    <OrbitControls
+      ref={controlsRef}
+      enableZoom={true}
+      enablePan={false}
+      enableRotate={true}
+      minDistance={7}
+      maxDistance={20}
+      minPolarAngle={0}
+      maxPolarAngle={Math.PI}
+    />
+  );
 }
 
-// Main component
 export default function SatelliteMap() {
   return (
-    <div style={{ width: "100%", height: "100vh", background: "#000" }}>
-      <Canvas>
-        <CameraSetup />
-        <ambientLight intensity={4} />
-        <spotLight
-          position={[10, 10, 10]}
-          angle={0.15}
-          penumbra={1}
-          decay={0}
-          intensity={Math.PI}
-        />
-        <pointLight position={[-10, -10, -10]} decay={0} intensity={Math.PI} />
-        {/* <gridHelper
-          args={[15, 30, "#cc0", "#999"]}
-          rotation={[0, -Math.PI, 0]}
-        /> */}
-        <Earth />
-        <OrbitControls enablePan={false} maxDistance={30} minDistance={20} />
+    <div className="relative h-full w-full">
+      <Canvas
+        camera={{ position: [0, 0, 15], fov: 45 }}
+        style={{ background: "black" }}
+      >
+        <Suspense fallback={<SatelliteLoadingState />}>
+          <ambientLight intensity={0.5} />
+          <pointLight position={[10, 10, 10]} intensity={1} />
+          <Earth />
+          <SatelliteTrajectory />
+          <SatelliteOverpass />
+          <CameraSetup />
+        </Suspense>
       </Canvas>
+      <SatelliteTimeline />
     </div>
   );
 }
